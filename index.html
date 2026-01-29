@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Geometry Dash HTML5 - Higher Jump</title>
+    <title>Geometry Dash - Extreme Jump</title>
     <style>
         body { 
             margin: 0; 
             overflow: hidden; 
-            background: #0a0a0a; 
+            background: #000; 
             display: flex; 
             justify-content: center; 
             align-items: center; 
@@ -16,31 +16,28 @@
             font-family: 'Segoe UI', sans-serif; 
         }
         canvas { 
-            border: 3px solid #00ffff; 
-            background-color: #000; 
-            box-shadow: 0 0 40px rgba(0, 255, 255, 0.2);
-            cursor: pointer;
+            border: 2px solid #00ffff; 
+            background: radial-gradient(circle, #111 0%, #000 100%);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
         }
         #ui { 
             position: absolute; 
-            top: 20px; 
-            width: 780px; 
+            top: 15px; 
+            width: 770px; 
             display: flex; 
             justify-content: space-between; 
-            color: white; 
-            font-size: 18px; 
-            text-transform: uppercase;
+            color: #fff; 
+            font-size: 22px; 
+            font-weight: bold; 
             pointer-events: none;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            text-shadow: 0 0 8px #00ffff;
         }
-        .info { color: #00ffff; }
     </style>
 </head>
 <body>
     <div id="ui">
-        <div>Wynik: <span id="score">0</span></div>
-        <div>Najlepszy: <span id="highscore">0</span></div>
-        <div class="info">Prędkość: <span id="speed">1.0</span>x</div>
+        <div>WYNIK: <span id="score">0</span></div>
+        <div>REKORD: <span id="highscore">0</span></div>
     </div>
     <canvas id="gameCanvas"></canvas>
 
@@ -49,39 +46,39 @@
         const ctx = canvas.getContext("2d");
         const scoreEl = document.getElementById("score");
         const highscoreEl = document.getElementById("highscore");
-        const speedEl = document.getElementById("speed");
 
         canvas.width = 800;
-        canvas.height = 400;
+        canvas.height = 450; // Nieco wyższy ekran dla lepszych skoków
 
-        // FIZYKA SKOKU - Zaktualizowane wartości
+        // --- KONFIGURACJA POSTACI ---
         let player = { 
-            x: 80, 
-            y: 310, 
-            size: 35, 
+            x: 90, 
+            y: 350, 
+            size: 38, 
             dy: 0, 
-            jumpStrength: -13.5, // Zwiększona siła skoku (było -11)
-            gravity: 0.65,       // Lekko zwiększona grawitacja dla balansu
-            grounded: false 
+            jumpStrength: -18, // EKSTREMALNY SKOK
+            gravity: 0.75,      // Silna grawitacja, by postać szybko wracała
+            grounded: false,
+            rotation: 0
         };
 
         let obstacles = [];
         let score = 0;
-        let highscore = localStorage.getItem("gd_highscore") || 0;
-        let baseSpeed = 4;
+        let highscore = localStorage.getItem("gd_highscore_v3") || 0;
+        let baseSpeed = 5;
         let gameActive = true;
         let frameCount = 0;
 
         highscoreEl.innerText = highscore;
 
         function spawnObstacle() {
-            const isTop = Math.random() > 0.6; // Mniejsze prawdopodobieństwo kolca na górze
-            const randomHeight = Math.floor(Math.random() * 50) + 30; // Kolce od 30 do 80px
+            const isTop = Math.random() > 0.75; // Rzadsze kolce na górze
+            const randomHeight = Math.floor(Math.random() * 60) + 40; // Wysokość od 40 do 100px
             const randomWidth = 35;
 
             obstacles.push({
                 x: canvas.width,
-                y: isTop ? 50 : 350,
+                y: isTop ? 50 : 400,
                 width: randomWidth,
                 height: randomHeight,
                 type: isTop ? "top" : "bottom"
@@ -94,81 +91,85 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             frameCount++;
 
-            // Podłoga i Sufit
-            ctx.strokeStyle = "#222";
-            ctx.lineWidth = 4;
+            // Linie graniczne
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.moveTo(0, 350); ctx.lineTo(canvas.width, 350);
-            ctx.moveTo(0, 50); ctx.lineTo(canvas.width, 50);
+            ctx.moveTo(0, 400); ctx.lineTo(canvas.width, 400); // Podłoga
+            ctx.moveTo(0, 50); ctx.lineTo(canvas.width, 50);   // Sufit
             ctx.stroke();
 
-            // Fizyka gracza
+            // Fizyka
             player.dy += player.gravity;
             player.y += player.dy;
 
-            if (player.y > 350 - player.size) {
-                player.y = 350 - player.size;
+            if (player.y > 400 - player.size) {
+                player.y = 400 - player.size;
                 player.dy = 0;
                 player.grounded = true;
+                player.rotation = 0; // Reset rotacji na ziemi
             }
             if (player.y < 50) {
                 player.y = 50;
-                player.dy = 1; // Odbicie od sufitu
+                player.dy = 2; // Odbicie od sufitu
             }
 
-            // Rysowanie gracza z rotacją
+            // Rysowanie gracza z obrotem
             ctx.save();
             ctx.translate(player.x + player.size/2, player.y + player.size/2);
             if (!player.grounded) {
-                ctx.rotate(frameCount * 0.1); // Efekt obracania w powietrzu
+                player.rotation += 0.15;
+                ctx.rotate(player.rotation);
             }
             ctx.fillStyle = "#00ffff";
             ctx.shadowBlur = 15;
             ctx.shadowColor = "#00ffff";
             ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
+            // Oczko/detal kostki
+            ctx.fillStyle = "#000";
+            ctx.fillRect(5, -12, 8, 8); 
             ctx.restore();
             ctx.shadowBlur = 0;
 
-            // Spawnowanie
-            let spawnRate = Math.max(70, 160 - Math.floor(baseSpeed * 6));
-            if (frameCount % spawnRate === 0) {
-                spawnObstacle();
-            }
+            // Generator przeszkód
+            let spawnInterval = Math.max(50, 140 - Math.floor(baseSpeed * 8));
+            if (frameCount % spawnInterval === 0) spawnObstacle();
 
-            // Przeszkody
+            // Pętla przeszkód
             for (let i = obstacles.length - 1; i >= 0; i--) {
                 let obs = obstacles[i];
                 obs.x -= baseSpeed;
 
-                ctx.fillStyle = "#ff2e2e";
+                ctx.fillStyle = "#ff1155";
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = "#ff1155";
                 ctx.beginPath();
                 if (obs.type === "bottom") {
-                    ctx.moveTo(obs.x, 350);
-                    ctx.lineTo(obs.x + obs.width / 2, 350 - obs.height);
-                    ctx.lineTo(obs.x + obs.width, 350);
+                    ctx.moveTo(obs.x, 400);
+                    ctx.lineTo(obs.x + obs.width / 2, 400 - obs.height);
+                    ctx.lineTo(obs.x + obs.width, 400);
                 } else {
                     ctx.moveTo(obs.x, 50);
                     ctx.lineTo(obs.x + obs.width / 2, 50 + obs.height);
                     ctx.lineTo(obs.x + obs.width, 50);
                 }
                 ctx.fill();
+                ctx.shadowBlur = 0;
 
-                // Kolizje
+                // Kolizje (Bounding Box)
                 if (player.x < obs.x + obs.width &&
                     player.x + player.size > obs.x &&
-                    ((obs.type === "bottom" && player.y + player.size > 350 - obs.height) ||
+                    ((obs.type === "bottom" && player.y + player.size > 400 - obs.height) ||
                      (obs.type === "top" && player.y < 50 + obs.height))) {
                     gameOver();
                 }
 
+                // Wynik i usuwanie
                 if (obs.x < -obs.width) {
                     obstacles.splice(i, 1);
                     score++;
                     scoreEl.innerText = score;
-                    if (score % 4 === 0) {
-                        baseSpeed += 0.2;
-                        speedEl.innerText = (baseSpeed / 4).toFixed(1);
-                    }
+                    if (score % 4 === 0) baseSpeed += 0.2; // Przyspieszanie
                 }
             }
 
@@ -178,9 +179,9 @@
         function gameOver() {
             gameActive = false;
             if (score > highscore) {
-                localStorage.setItem("gd_highscore", score);
+                localStorage.setItem("gd_highscore_v3", score);
             }
-            alert("Wynik: " + score);
+            alert("KONIEC GRY! Wynik: " + score);
             location.reload();
         }
 
@@ -191,6 +192,7 @@
             }
         }
 
+        // Sterowanie
         window.addEventListener("keydown", (e) => { if (e.code === "Space") jump(); });
         window.addEventListener("mousedown", jump);
         window.addEventListener("touchstart", (e) => { e.preventDefault(); jump(); });
