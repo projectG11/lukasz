@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geometry Dash HTML5 - Full Version</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: #111; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        canvas { 
+            border: 3px solid #444; 
+            background-color: #000; 
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.1);
+            cursor: pointer;
+        }
+        #ui { 
+            position: absolute; 
+            top: 20px; 
+            width: 780px; 
+            display: flex; 
+            justify-content: space-between; 
+            color: white; 
+            font-size: 18px; 
+            text-transform: uppercase;
+            pointer-events: none;
+        }
+        .info { color: #00ffff; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div>Wynik: <span id="score">0</span></div>
+        <div>Najlepszy: <span id="highscore">0</span></div>
+        <div class="info">Prędkość: <span id="speed">1.0</span>x</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const scoreEl = document.getElementById("score");
+        const highscoreEl = document.getElementById("highscore");
+        const speedEl = document.getElementById("speed");
+
+        canvas.width = 800;
+        canvas.height = 400;
+
+        // Parametry gry
+        let player = { x: 80, y: 310, size: 35, dy: 0, jumpStrength: -11, gravity: 0.6, grounded: false };
+        let obstacles = [];
+        let score = 0;
+        let highscore = localStorage.getItem("gd_highscore") || 0;
+        let baseSpeed = 4; // Wolny start
+        let gameActive = true;
+        let frameCount = 0;
+
+        highscoreEl.innerText = highscore;
+
+        function spawnObstacle() {
+            const isTop = Math.random() > 0.5;
+            // Losowa wysokość kolca (od 25 do 65 pikseli)
+            const randomHeight = Math.floor(Math.random() * 40) + 25;
+            const randomWidth = Math.floor(Math.random() * 15) + 30;
+
+            obstacles.push({
+                x: canvas.width,
+                y: isTop ? 50 : 350,
+                width: randomWidth,
+                height: randomHeight,
+                type: isTop ? "top" : "bottom"
+            });
+        }
+
+        function draw() {
+            if (!gameActive) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            frameCount++;
+
+            // Rysowanie linii trasy
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, 350); ctx.lineTo(canvas.width, 350); // Dół
+            ctx.moveTo(0, 50); ctx.lineTo(canvas.width, 50);   // Góra
+            ctx.stroke();
+
+            // Fizyka gracza
+            player.dy += player.gravity;
+            player.y += player.dy;
+
+            // Kolizja z podłogą
+            if (player.y > 350 - player.size) {
+                player.y = 350 - player.size;
+                player.dy = 0;
+                player.grounded = true;
+            }
+            // Ograniczenie sufitu
+            if (player.y < 50) {
+                player.y = 50;
+                player.dy = 0;
+            }
+
+            // Rysowanie gracza
+            ctx.fillStyle = "#00ffff";
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "#00ffff";
+            ctx.fillRect(player.x, player.y, player.size, player.size);
+            ctx.shadowBlur = 0; // Wyłączamy poświatę dla innych elementów
+
+            // Nowa przeszkoda co X klatek (zależnie od prędkości)
+            let spawnRate = Math.max(60, 140 - Math.floor(baseSpeed * 5));
+            if (frameCount % spawnRate === 0) {
+                spawnObstacle();
+            }
+
+            // Przeszkody
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                obs.x -= baseSpeed;
+
+                // Rysowanie kolca o różnej wysokości
+                ctx.fillStyle = "#ff2e2e";
+                ctx.beginPath();
+                if (obs.type === "bottom") {
+                    ctx.moveTo(obs.x, 350);
+                    ctx.lineTo(obs.x + obs.width / 2, 350 - obs.height);
+                    ctx.lineTo(obs.x + obs.width, 350);
+                } else {
+                    ctx.moveTo(obs.x, 50);
+                    ctx.lineTo(obs.x + obs.width / 2, 50 + obs.height);
+                    ctx.lineTo(obs.x + obs.width, 50);
+                }
+                ctx.fill();
+
+                // Detekcja kolizji
+                if (player.x < obs.x + obs.width &&
+                    player.x + player.size > obs.x &&
+                    ((obs.type === "bottom" && player.y + player.size > 350 - obs.height) ||
+                     (obs.type === "top" && player.y < 50 + obs.height))) {
+                    gameOver();
+                }
+
+                // Usuwanie i punktacja
+                if (obs.x < -obs.width) {
+                    obstacles.splice(i, 1);
+                    score++;
+                    scoreEl.innerText = score;
+                    
+                    // Stopniowe przyspieszanie
+                    if (score % 3 === 0) {
+                        baseSpeed += 0.15;
+                        speedEl.innerText = (baseSpeed / 4).toFixed(1);
+                    }
+                }
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        function gameOver() {
+            gameActive = false;
+            if (score > highscore) {
+                localStorage.setItem("gd_highscore", score);
+                alert("NOWY REKORD! Wynik: " + score);
+            } else {
+                alert("Koniec gry! Wynik: " + score);
+            }
+            location.reload();
+        }
+
+        // Sterowanie
+        function jump() {
+            if (player.grounded) {
+                player.dy = player.jumpStrength;
+                player.grounded = false;
+            }
+        }
+
+        window.addEventListener("keydown", (e) => { if (e.code === "Space") jump(); });
+        window.addEventListener("mousedown", jump);
+        window.addEventListener("touchstart", (e) => { e.preventDefault(); jump(); });
+
+        draw();
+    </script>
+</body>
+</html>
